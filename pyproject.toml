@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 # Needs an anthropic SDK version supporting claude-opus-4-8 + adaptive thinking.
-dependencies = ["anthropic>=0.40"]
+dependencies = ["anthropic>=0.40", "python-dotenv>=1.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]

@@ -1,4 +1,5 @@
 # For an editable install (recommended): pip install -e ".[dev]"
 # This file mirrors the runtime + test deps for the plain-pip path.
 anthropic  # needs a version supporting claude-opus-4-8 + adaptive thinking
+python-dotenv
 pytest

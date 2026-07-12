@@ -131,7 +131,71 @@ def _pct(x) -> str:
     return "n/a" if x is None else f"{x * 100:.1f}%"
 
 
+# --- Ablation: isolate what the HITL policy adds on top of the raw model -------
+# The saved records already carry `escalated` (the policy's decision) alongside
+# the raw `predicted_verdict`. So we can recompute two views with no new API
+# calls: (A) the model's verdict as-is, and (B) treating any escalated case as a
+# needs_human prediction. The delta is the judgment layer's contribution — the
+# part that isn't just the model.
+
+def _hitl_view(records: list[dict]) -> list[dict]:
+    """Records with predicted_verdict forced to needs_human where escalated."""
+    out = []
+    for r in records:
+        rr = dict(r)
+        if r["escalated"]:
+            rr["predicted_verdict"] = "needs_human"
+        out.append(rr)
+    return out
+
+
+def _policy_only_escalations(records: list[dict]) -> list[dict]:
+    """Escalations the policy added beyond the model's own needs_human calls."""
+    return [r for r in records if r["escalated"] and r["predicted_verdict"] != "needs_human"]
+
+
+def _delta(a, b) -> str:
+    if a is None or b is None:
+        return "n/a"
+    return f"{(b - a) * 100:+.1f}pp"
+
+
+def print_ablation(records: list[dict]) -> None:
+    raw = compute_metrics(records)
+    hitl = compute_metrics(_hitl_view(records))
+    print("\n" + "=" * 60)
+    print("ABLATION — raw model (A) vs +HITL policy (B)")
+    print("=" * 60)
+    print(f"{'metric':<20}{'A raw':>10}{'B +HITL':>10}{'delta':>10}")
+    for label, key in [
+        ("Verdict agreement", "verdict_agreement"),
+        ("Gap recall", "gap_recall"),
+        ("Escalation recall", "escalation_recall"),
+        ("Escalation prec.", "escalation_precision"),
+    ]:
+        a, b = raw[key], hitl[key]
+        print(f"{label:<20}{_pct(a):>10}{_pct(b):>10}{_delta(a, b):>10}")
+
+    flips = _policy_only_escalations(records)
+    print(f"\nHITL policy escalated {len(flips)} case(s) the model did not self-flag:")
+    if not flips:
+        print("  (none — on this dataset the deterministic policy never fired beyond")
+        print("   the model's own needs_human calls, so A and B are identical.)")
+    for r in flips:
+        expert = r["expert_verdict"]
+        effect = "newly CORRECT" if expert == "needs_human" else f"newly WRONG (expert={expert})"
+        print(f"  {r['control_id']}: {r['predicted_verdict']}->needs_human  {effect}  [{r['escalation_reason']}]")
+
+
 def main() -> None:
+    if "--ablation" in sys.argv:
+        path = config.EVAL_RESULTS_DIR / "latest.json"
+        if not path.exists():
+            sys.exit(f"No results to ablate: {path}\nRun `python eval/run_eval.py` first.")
+        out = json.loads(path.read_text(encoding="utf-8"))
+        print_ablation(out["records"])
+        return
+
     samples = load_dataset(config.EVAL_DATASET)
     out = evaluate(samples)
     out["model"] = config.MODEL

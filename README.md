@@ -80,7 +80,20 @@ The harness runs the judgment layer over a small labelled dataset and reports:
   judgment, how many were escalated (precision/recall)
 - **Confidence vs. accuracy** — a rough calibration read
 
-Method and the results table are in [`eval/README.md`](eval/README.md).
+On 18 synthetic samples with `claude-opus-4-8`:
+
+| Metric | Value |
+|---|---|
+| Verdict agreement | 83.3% (15/18) |
+| Gap recall | 100.0% (5/5) |
+| Escalation recall / precision | 75.0% / 100.0% |
+| Mean confidence (correct / wrong) | 0.845 / 0.673 |
+
+An ablation (`--ablation`) isolates the HITL policy's contribution from the
+model's own judgment. On this set the delta is zero — the deterministic policy
+never fired beyond the model's own `needs_human` calls, an honest null result
+that the harness makes visible rather than hides. Method, confusion matrix, and
+the ablation are in [`eval/README.md`](eval/README.md).
 
 ## Quickstart
 
