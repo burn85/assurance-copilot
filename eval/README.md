@@ -8,11 +8,16 @@ that matter for assurance review. All data is synthetic.
 ```bash
 python eval/run_eval.py                # needs ANTHROPIC_API_KEY
 python eval/run_eval.py --ablation     # no API — recomputes from latest.json
+python eval/run_eval.py --ground       # + legal grounding (needs LAW_OC + Node.js)
 ```
 
 Writes a per-sample breakdown and the summary metrics to
 `eval/results/latest.json` (gitignored) and prints a table. `--ablation` reuses
 that saved run to compare the raw model against the model + HITL policy (below).
+`--ground` enables legal grounding: the model is asked to cite the governing
+statute and that citation is verified against the national-law database, adding
+a **citation-validity** metric. It is opt-in because it needs a `LAW_OC` key and
+makes a law lookup per sample; the default run stays offline-free of that.
 
 ## Dataset
 
@@ -40,6 +45,9 @@ records the labelling rationale.
 - **Escalation recall / precision** — treating `needs_human` labels as the
   positive class: recall = escalated among needs-human; precision = needs-human
   among escalated.
+- **Citation validity** (`--ground` only) — of the grounded samples, the
+  fraction whose statute citation verified against the national-law database. A
+  fabricated article is caught and escalated.
 - **Mean confidence** — overall, and split by correct vs. wrong predictions.
 
 ## Results

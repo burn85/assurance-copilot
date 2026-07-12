@@ -48,10 +48,11 @@ policy, and the evaluation harness — the parts that are the actual product.
 | HITL policy | decide what a human must review | **build** — explicit, testable escalation rules |
 | Evaluation | measure agreement, gap recall, escalation calibration | **build** — the reliability multiplier |
 
-On-device OCR for image evidence and legal-text grounding are **roadmap** items
-behind their own interfaces, not all wired up yet.
+Legal-text grounding is implemented but **opt-in** (it verifies the statute the
+model cites against a national-law MCP tool; needs Node.js and a free API key).
 [OSCAL](https://pages.nist.gov/OSCAL/) assessment-results export is implemented
-(see below). Full design rationale is in [ARCHITECTURE.md](ARCHITECTURE.md).
+too (see below). On-device OCR for image evidence sits behind its interface and
+is not wired up yet. Full design rationale is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Human-in-the-loop design
 
@@ -125,8 +126,10 @@ The model defaults to `claude-opus-4-8`; override with `ASSURANCE_MODEL`.
 - **Self-reported confidence.** The model's confidence is not independently calibrated.
 - **Paraphrased controls.** Control texts are short summaries for demo use, not
   official normative texts.
-- **Roadmap components** (on-device OCR, RAG backend, OSCAL export, legal
-  grounding) are interfaces-first and not all implemented.
+- **Opt-in / roadmap components.** Legal grounding and OSCAL export are
+  implemented but off the default path (legal grounding needs Node.js and an
+  API key). On-device OCR and a production RAG backend are interfaces-first and
+  not wired up.
 
 ## License
 

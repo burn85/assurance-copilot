@@ -48,6 +48,7 @@ evaluation harness that measures them.
 | OCR | `ocr/` | **buy** (interface) | Pluggable: on-device Apple Vision (private, zero-token) or Tesseract (portable fallback). |
 | Judgment | `judgment/reviewer.py`, `prompts.py` | **build** | Claude via the official SDK, adaptive thinking; the prompt encodes the auditor's mindset and the verdict contract. |
 | HITL policy | `judgment/hitl.py` | **build** | Deterministic, testable escalation rules that run after the model. |
+| Legal grounding | `legal/` | **buy** (tool) + **build** (verify loop) | Opt-in: cite the governing statute, then verify it against a national-law MCP tool over local stdio. |
 | OSCAL export | `oscal/serializer.py` | **build** | Results → NIST Assessment Results v1.1.2. |
 | Evaluation | `eval/run_eval.py` | **build** | Metrics + ablation; the reliability multiplier. |
 | CLI | `cli.py` | **build** | `review`, `eval`, `export-oscal`. |
@@ -102,13 +103,33 @@ structural and required-field checks run but token character-class constraints
 are not enforced. For strict, pattern-exact validation, use the official
 `oscal-cli`.
 
-## Legal grounding (roadmap)
+## Legal grounding
 
-Controls in a privacy/security framework are rooted in real statutes. A roadmap
-component grounds verdicts in actual statute text and verifies any legal
-citations the model produces (flagging hallucinated references), via a
-tool/MCP integration. The MVP stands without it — external keys and services
-are isolated behind their own interfaces.
+Controls in a privacy/security framework are rooted in real statutes. When
+grounding is enabled, `legal/` closes a verify loop around the verdict:
+
+1. **Cite** — the reviewer tells the model which statute family the control
+   derives from (a control→statute seed in `grounding.py`) and asks it to cite
+   the specific article in its reasoning.
+2. **Verify** — the cited article is checked against the national statute
+   database through the [`korean-law-mcp`](https://github.com/chrisryugj/korean-law-mcp)
+   tool. A fabricated article number is caught and the draft is escalated
+   (`unverified_legal_citation`), regardless of confidence.
+
+The verification runs through a **local stdio MCP client** (`legal/law_client.py`
+spawns the tool as a subprocess and calls it over JSON-RPC), not the Anthropic
+MCP connector. The connector would be the more "agentic" wiring, but the beta
+is not available on every API endpoint, whereas the local client works
+anywhere: the law lookups happen client-side and only the resulting text is
+fed to the model. It also makes the behaviour deterministic and unit-testable
+(the JSON-RPC handshake is exercised against a fake server, no network).
+
+The eval exposes this as a **citation-validity** metric under an opt-in
+`--ground` flag (see `eval/README.md`); the default run makes no law lookups.
+Grounding is gated on a free national-statute API key (`LAW_OC`) and Node.js —
+the MVP stands without either. Injecting the full article *text* into the
+prompt (the client exposes `get_law_text`) is a supported follow-on, not yet
+wired into the default loop.
 
 ## Evaluation
 
@@ -119,6 +140,7 @@ are in [`eval/README.md`](eval/README.md).
 
 ## What is not wired up
 
-On-device OCR requires the platform binary; a production RAG backend, the legal
-grounding integration, persistence, and auth are all out of scope for this demo.
-These sit behind interfaces so they can be added without reshaping the core.
+On-device OCR requires the platform binary; a production RAG backend,
+persistence, and auth are all out of scope for this demo. Legal grounding is
+implemented but opt-in (needs Node.js and a statute-API key). These sit behind
+interfaces so they can be added or enabled without reshaping the core.
