@@ -48,9 +48,10 @@ policy, and the evaluation harness — the parts that are the actual product.
 | HITL policy | decide what a human must review | **build** — explicit, testable escalation rules |
 | Evaluation | measure agreement, gap recall, escalation calibration | **build** — the reliability multiplier |
 
-On-device OCR for image evidence, [OSCAL](https://pages.nist.gov/OSCAL/)
-assessment-results export, and legal-text grounding are **roadmap** items behind
-their own interfaces, not all wired up yet.
+On-device OCR for image evidence and legal-text grounding are **roadmap** items
+behind their own interfaces, not all wired up yet.
+[OSCAL](https://pages.nist.gov/OSCAL/) assessment-results export is implemented
+(see below). Full design rationale is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Human-in-the-loop design
 
@@ -103,6 +104,14 @@ cp .env.example .env         # add your ANTHROPIC_API_KEY
 
 pytest tests/                # unit tests — no API key needed
 python eval/run_eval.py      # runs the eval (needs ANTHROPIC_API_KEY)
+```
+
+After `pip install -e .` the CLI is available:
+
+```bash
+assurance-copilot review --control "ISMS-P 2.5.1" --evidence evidence.txt
+assurance-copilot eval --ablation
+assurance-copilot export-oscal --in eval/results/latest.json --out ar.json
 ```
 
 The model defaults to `claude-opus-4-8`; override with `ASSURANCE_MODEL`.
