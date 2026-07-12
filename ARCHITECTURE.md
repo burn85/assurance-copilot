@@ -140,7 +140,9 @@ are in [`eval/README.md`](eval/README.md).
 
 ## What is not wired up
 
-On-device OCR requires the platform binary; a production RAG backend,
-persistence, and auth are all out of scope for this demo. Legal grounding is
-implemented but opt-in (needs Node.js and a statute-API key). These sit behind
+OCR is implemented (Apple Vision on macOS via pyobjc; Tesseract elsewhere) but
+optional — `pip install -e ".[ocr]"`; Korean recognition on the Tesseract
+fallback is weak, so Apple Vision is the Korean path. Legal grounding is
+implemented but opt-in (needs Node.js and a statute-API key). A production RAG
+backend, persistence, and auth are out of scope for this demo. These sit behind
 interfaces so they can be added or enabled without reshaping the core.

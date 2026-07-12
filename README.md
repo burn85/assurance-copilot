@@ -51,8 +51,9 @@ policy, and the evaluation harness — the parts that are the actual product.
 Legal-text grounding is implemented but **opt-in** (it verifies the statute the
 model cites against a national-law MCP tool; needs Node.js and a free API key).
 [OSCAL](https://pages.nist.gov/OSCAL/) assessment-results export is implemented
-too (see below). On-device OCR for image evidence sits behind its interface and
-is not wired up yet. Full design rationale is in [ARCHITECTURE.md](ARCHITECTURE.md).
+too (see below). On-device OCR for image evidence is implemented behind a
+pluggable interface (Apple Vision on macOS, Tesseract elsewhere). Full design
+rationale is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Human-in-the-loop design
 
@@ -111,9 +112,13 @@ After `pip install -e .` the CLI is available:
 
 ```bash
 assurance-copilot review --control "ISMS-P 2.5.1" --evidence evidence.txt
+assurance-copilot review --control "ISMS-P 2.5.1" --evidence screenshot.png  # image -> OCR
 assurance-copilot eval --ablation
 assurance-copilot export-oscal --in eval/results/latest.json --out ar.json
 ```
+
+Image evidence needs the OCR extras: `pip install -e ".[ocr]"` (Apple Vision on
+macOS, Tesseract elsewhere). `--ocr auto|apple_vision|tesseract` selects the backend.
 
 The model defaults to `claude-opus-4-8`; override with `ASSURANCE_MODEL`.
 
@@ -126,10 +131,11 @@ The model defaults to `claude-opus-4-8`; override with `ASSURANCE_MODEL`.
 - **Self-reported confidence.** The model's confidence is not independently calibrated.
 - **Paraphrased controls.** Control texts are short summaries for demo use, not
   official normative texts.
-- **Opt-in / roadmap components.** Legal grounding and OSCAL export are
-  implemented but off the default path (legal grounding needs Node.js and an
-  API key). On-device OCR and a production RAG backend are interfaces-first and
-  not wired up.
+- **Opt-in / roadmap components.** On-device OCR, legal grounding, and OSCAL
+  export are implemented but off the default path (OCR needs `.[ocr]` extras;
+  legal grounding needs Node.js and an API key). Korean OCR on the Tesseract
+  fallback is weak — Apple Vision is the Korean path. A production RAG backend
+  is interface-first and not wired up.
 
 ## License
 

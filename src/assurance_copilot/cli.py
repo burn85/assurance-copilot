@@ -19,7 +19,11 @@ from pathlib import Path
 from . import config
 from .models import Citation, Evidence, ReviewResult, Verdict
 
-_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".gif", ".webp", ".pdf"}
+# Raster image formats the OCR backends can decode. PDF is intentionally absent:
+# neither backend decodes it (PIL has no PDF reader, CGImageSource returns nil),
+# so a PDF path would fail rather than silently mislead. Add it with a real
+# rasterize step if PDF evidence is needed.
+_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".gif", ".webp"}
 
 
 def _load_evidence(path: str, control_id: str, ocr: str) -> Evidence:

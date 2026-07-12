@@ -1,78 +1,97 @@
 """Apple Vision OCR backend — on-device, zero-token text recognition.
 
-Wraps the `macvis` binary from mac-local-vision
-(https://github.com/junmo-kim/mac-local-vision), which exposes Apple's Vision
-framework OCR as a single Swift binary. Runs entirely on-device on Apple
-Silicon + macOS 26+, so sensitive audit evidence never leaves the machine and
-no vision tokens are spent.
+Calls Apple's Vision framework directly through pyobjc (VNRecognizeTextRequest),
+so sensitive audit evidence never leaves the machine and no vision tokens are
+spent. No external binary or compile step — the backend is `pip install
+pyobjc-framework-Vision pyobjc-framework-Quartz` on macOS.
 
-This backend is intentionally optional: `is_available()` returns False anywhere
-the binary or platform is missing, and `select_backend("auto")` then falls back
-to Tesseract so the repo stays runnable for any reviewer.
+Intentionally optional: `is_available()` returns False anywhere the frameworks
+or platform are missing, and `select_backend("auto")` then falls back to
+Tesseract so the repo stays runnable for any reviewer.
 """
 
 from __future__ import annotations
 
-import json
-import os
-import shutil
-import subprocess
+import platform
 
 from .base import OCRBackend, OCRResult
 
-# Override with e.g. MACVIS_BIN=/path/to/macvis if it is not on PATH.
-MACVIS_BIN = os.environ.get("MACVIS_BIN", "macvis")
+# Vision text-recognition level: 0 = accurate, 1 = fast.
+_LEVEL_ACCURATE = 0
+# Prefer Korean then English — ISMS-P evidence is typically Korean.
+_LANGUAGES = ["ko-KR", "en-US"]
 
 
 class AppleVisionOCR(OCRBackend):
     name = "apple_vision"
 
     def is_available(self) -> bool:
-        if shutil.which(MACVIS_BIN) is None and not os.path.exists(MACVIS_BIN):
+        if platform.system() != "Darwin":
             return False
         try:
-            # `macvis doctor` reports whether Vision is usable on this machine.
-            out = subprocess.run(
-                [MACVIS_BIN, "doctor"],
-                capture_output=True, text=True, timeout=15,
-            )
-            return out.returncode == 0
-        except (OSError, subprocess.SubprocessError):
+            import Quartz  # noqa: F401
+            import Vision
+        except ImportError:
             return False
+        return hasattr(Vision, "VNRecognizeTextRequest")
 
     def extract(self, image_path: str) -> OCRResult:
+        import os
+
         if not os.path.exists(image_path):
             raise FileNotFoundError(image_path)
-        # `macvis ocr <image> --json` returns recognized text (see repo docs).
-        proc = subprocess.run(
-            [MACVIS_BIN, "ocr", image_path, "--json"],
-            capture_output=True, text=True, timeout=60,
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(f"macvis ocr failed: {proc.stderr.strip()}")
 
-        text, confidence = _parse_macvis_json(proc.stdout)
+        import Quartz
+        import Vision
+        from Foundation import NSURL
+
+        url = NSURL.fileURLWithPath_(image_path)
+        source = Quartz.CGImageSourceCreateWithURL(url, None)
+        if source is None:
+            raise RuntimeError(f"Could not read image: {image_path}")
+        cg_image = Quartz.CGImageSourceCreateImageAtIndex(source, 0, None)
+        if cg_image is None:
+            raise RuntimeError(f"Could not decode image: {image_path}")
+
+        request = Vision.VNRecognizeTextRequest.alloc().init()
+        request.setRecognitionLevel_(_LEVEL_ACCURATE)
+        request.setUsesLanguageCorrection_(True)
+        # Only request languages Vision actually supports on this machine, so an
+        # older macOS without Korean degrades to English rather than failing.
+        supported = _supported_languages(request)
+        wanted = [lang for lang in _LANGUAGES if lang in supported] if supported else []
+        if wanted:
+            request.setRecognitionLanguages_(wanted)
+
+        handler = Vision.VNImageRequestHandler.alloc().initWithCGImage_options_(cg_image, {})
+        ok, err = handler.performRequests_error_([request], None)
+        if not ok:
+            raise RuntimeError(f"Vision OCR failed: {err}")
+
+        lines: list[str] = []
+        confidences: list[float] = []
+        for obs in request.results() or []:
+            candidates = obs.topCandidates_(1)
+            if not candidates:
+                continue
+            best = candidates[0]
+            lines.append(best.string())
+            confidences.append(float(best.confidence()))
+
+        text = "\n".join(lines).strip()
+        confidence = round(sum(confidences) / len(confidences), 3) if confidences else 1.0
         return OCRResult(text=text, backend=self.name, confidence=confidence)
 
 
-def _parse_macvis_json(stdout: str) -> tuple[str, float]:
-    """Parse macvis JSON output defensively.
+def _supported_languages(request) -> list[str]:
+    """Recognition languages Vision supports on this machine (may be empty)."""
+    import Vision
 
-    The exact schema is pinned when the binary is installed; we read the common
-    fields and fall back to raw stdout so a schema tweak never hard-crashes.
-    """
     try:
-        data = json.loads(stdout)
-    except json.JSONDecodeError:
-        return stdout.strip(), 1.0
-
-    if isinstance(data, dict):
-        if "text" in data:
-            return str(data["text"]).strip(), float(data.get("confidence", 1.0))
-        if "lines" in data and isinstance(data["lines"], list):
-            lines = [str(l.get("text", l)) if isinstance(l, dict) else str(l)
-                     for l in data["lines"]]
-            return "\n".join(lines).strip(), 1.0
-    if isinstance(data, list):
-        return "\n".join(str(x) for x in data).strip(), 1.0
-    return str(data).strip(), 1.0
+        langs, _ = Vision.VNRecognizeTextRequest.\
+            supportedRecognitionLanguagesForTextRecognitionLevel_revision_error_(
+                _LEVEL_ACCURATE, request.revision(), None
+            )
+        return list(langs or [])
+    except Exception:
+        return []

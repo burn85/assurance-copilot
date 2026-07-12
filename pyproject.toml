@@ -17,7 +17,11 @@ assurance-copilot = "assurance_copilot.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
-ocr = ["pytesseract>=0.3", "Pillow>=10"]
+ocr = [
+    "pytesseract>=0.3", "Pillow>=10",                       # Tesseract fallback (any OS)
+    "pyobjc-framework-Vision>=10; sys_platform == 'darwin'",  # Apple Vision (on-device)
+    "pyobjc-framework-Quartz>=10; sys_platform == 'darwin'",
+]
 oscal = ["jsonschema>=4"]  # only for validate_against_schema; serializer core needs nothing
 
 [tool.setuptools.packages.find]
