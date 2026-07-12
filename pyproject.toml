@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "assurance-copilot"
+version = "0.1.0"
+description = "Draft audit-evidence judgments with human-in-the-loop routing"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+# Needs an anthropic SDK version supporting claude-opus-4-8 + adaptive thinking.
+dependencies = ["anthropic>=0.40"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+ocr = ["pytesseract>=0.3", "Pillow>=10"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
