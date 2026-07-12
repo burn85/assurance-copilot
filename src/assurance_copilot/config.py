@@ -30,3 +30,8 @@ FRAMEWORKS_DIR = REPO_ROOT / "data" / "frameworks"
 CONTROLS_CATALOG = FRAMEWORKS_DIR / "ismsp_controls.md"
 EVAL_DATASET = REPO_ROOT / "eval" / "dataset" / "ismsp_samples.jsonl"
 EVAL_RESULTS_DIR = REPO_ROOT / "eval" / "results"
+
+# MaxKB RAG backend (optional; see docker-compose.maxkb.yml). The MVP runs on the
+# local retriever without this. MaxKB v2 auths via user/password login (not a
+# static key); MAXKB_USERNAME / MAXKB_PASSWORD are read by the client directly.
+MAXKB_BASE_URL = os.environ.get("MAXKB_BASE_URL", "http://localhost:8080")

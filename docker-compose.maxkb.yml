@@ -1,0 +1,21 @@
+# MaxKB — RAG backend (Django + Vue + PostgreSQL/pgvector), GPL-3.0.
+# Referenced as an external service, NOT bundled with this repo (which is MIT).
+#
+#   docker compose -f docker-compose.maxkb.yml up -d
+#   open http://localhost:8080          # first-run: admin / MaxKB@123..
+#
+# MaxKB is model-agnostic: configure an embedding model in the UI before a
+# knowledge base can vectorize/retrieve. The MVP does not need this — the local
+# keyword retriever runs with no external infrastructure.
+services:
+  maxkb:
+    image: 1panel/maxkb:latest
+    container_name: assurance-maxkb
+    ports:
+      - "8080:8080"
+    volumes:
+      - maxkb-data:/opt/maxkb
+    restart: unless-stopped
+
+volumes:
+  maxkb-data:

@@ -43,7 +43,7 @@ policy, and the evaluation harness — the parts that are the actual product.
 
 | Layer | Role | Build or buy |
 |---|---|---|
-| Retrieval | find the relevant control text | **buy** — pluggable (local keyword retriever for the MVP; RAG backend as a roadmap option) |
+| Retrieval | find the relevant control text | **buy** — pluggable: local keyword retriever (MVP default) or a real [MaxKB](https://github.com/1Panel-dev/MaxKB) RAG backend (optional, via docker-compose) behind the same interface |
 | Judgment | draft the verdict + grounding | **build** — Claude with adaptive thinking; prompts encode the auditor's mindset |
 | HITL policy | decide what a human must review | **build** — explicit, testable escalation rules |
 | Evaluation | measure agreement, gap recall, escalation calibration | **build** — the reliability multiplier |
@@ -134,8 +134,8 @@ The model defaults to `claude-opus-4-8`; override with `ASSURANCE_MODEL`.
 - **Opt-in / roadmap components.** On-device OCR, legal grounding, and OSCAL
   export are implemented but off the default path (OCR needs `.[ocr]` extras;
   legal grounding needs Node.js and an API key). Korean OCR on the Tesseract
-  fallback is weak — Apple Vision is the Korean path. A production RAG backend
-  is interface-first and not wired up.
+  fallback is weak — Apple Vision is the Korean path. The MaxKB RAG backend is
+  implemented but optional (needs Docker); the local retriever is the default.
 
 ## License
 

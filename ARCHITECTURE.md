@@ -44,7 +44,7 @@ evaluation harness that measures them.
 
 | Component | Module | Buy / build | Notes |
 |---|---|---|---|
-| Retrieval | `retrieval/local_retriever.py` | **buy** (interface) | MVP uses a keyword retriever over a markdown catalog; a RAG backend is a drop-in behind the same shape. |
+| Retrieval | `retrieval/local_retriever.py`, `maxkb_client.py` | **buy** (interface) | MVP uses a keyword retriever over a markdown catalog; a MaxKB RAG backend is a drop-in behind the same `retrieve()` shape (optional, via docker-compose). |
 | OCR | `ocr/` | **buy** (interface) | Pluggable: on-device Apple Vision (private, zero-token) or Tesseract (portable fallback). |
 | Judgment | `judgment/reviewer.py`, `prompts.py` | **build** | Claude via the official SDK, adaptive thinking; the prompt encodes the auditor's mindset and the verdict contract. |
 | HITL policy | `judgment/hitl.py` | **build** | Deterministic, testable escalation rules that run after the model. |
@@ -143,6 +143,8 @@ are in [`eval/README.md`](eval/README.md).
 OCR is implemented (Apple Vision on macOS via pyobjc; Tesseract elsewhere) but
 optional — `pip install -e ".[ocr]"`; Korean recognition on the Tesseract
 fallback is weak, so Apple Vision is the Korean path. Legal grounding is
-implemented but opt-in (needs Node.js and a statute-API key). A production RAG
-backend, persistence, and auth are out of scope for this demo. These sit behind
-interfaces so they can be added or enabled without reshaping the core.
+implemented but opt-in (needs Node.js and a statute-API key). The MaxKB RAG
+backend is implemented behind the retrieval interface but optional (needs
+Docker); the local keyword retriever is the default. Persistence and auth are
+out of scope for this demo. These sit behind interfaces so they can be added or
+enabled without reshaping the core.
