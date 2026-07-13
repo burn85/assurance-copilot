@@ -10,11 +10,19 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 # Needs an anthropic SDK version supporting claude-opus-4-8 + adaptive thinking.
-dependencies = ["anthropic>=0.40"]
+dependencies = ["anthropic>=0.40", "python-dotenv>=1.0"]
+
+[project.scripts]
+assurance-copilot = "assurance_copilot.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
-ocr = ["pytesseract>=0.3", "Pillow>=10"]
+ocr = [
+    "pytesseract>=0.3", "Pillow>=10",                       # Tesseract fallback (any OS)
+    "pyobjc-framework-Vision>=10; sys_platform == 'darwin'",  # Apple Vision (on-device)
+    "pyobjc-framework-Quartz>=10; sys_platform == 'darwin'",
+]
+oscal = ["jsonschema>=4"]  # only for validate_against_schema; serializer core needs nothing
 
 [tool.setuptools.packages.find]
 where = ["src"]

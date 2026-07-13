@@ -65,6 +65,7 @@ class ReviewResult:
     model: str = ""
     escalated: bool = False          # set True by the HITL layer when routed to a human
     escalation_reason: str = ""
+    citation_valid: Optional[bool] = None  # legal-grounding check; None if not run
 
     def to_json(self) -> str:
         d = asdict(self)

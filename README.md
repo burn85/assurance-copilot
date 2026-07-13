@@ -43,14 +43,17 @@ policy, and the evaluation harness — the parts that are the actual product.
 
 | Layer | Role | Build or buy |
 |---|---|---|
-| Retrieval | find the relevant control text | **buy** — pluggable (local keyword retriever for the MVP; RAG backend as a roadmap option) |
+| Retrieval | find the relevant control text | **buy** — pluggable: local keyword retriever (MVP default) or a real [MaxKB](https://github.com/1Panel-dev/MaxKB) RAG backend (optional, via docker-compose) behind the same interface |
 | Judgment | draft the verdict + grounding | **build** — Claude with adaptive thinking; prompts encode the auditor's mindset |
 | HITL policy | decide what a human must review | **build** — explicit, testable escalation rules |
 | Evaluation | measure agreement, gap recall, escalation calibration | **build** — the reliability multiplier |
 
-On-device OCR for image evidence, [OSCAL](https://pages.nist.gov/OSCAL/)
-assessment-results export, and legal-text grounding are **roadmap** items behind
-their own interfaces, not all wired up yet.
+Legal-text grounding is implemented but **opt-in** (it verifies the statute the
+model cites against a national-law MCP tool; needs Node.js and a free API key).
+[OSCAL](https://pages.nist.gov/OSCAL/) assessment-results export is implemented
+too (see below). On-device OCR for image evidence is implemented behind a
+pluggable interface (Apple Vision on macOS, Tesseract elsewhere). Full design
+rationale is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Human-in-the-loop design
 
@@ -80,7 +83,20 @@ The harness runs the judgment layer over a small labelled dataset and reports:
   judgment, how many were escalated (precision/recall)
 - **Confidence vs. accuracy** — a rough calibration read
 
-Method and the results table are in [`eval/README.md`](eval/README.md).
+On 18 synthetic samples with `claude-opus-4-8`:
+
+| Metric | Value |
+|---|---|
+| Verdict agreement | 83.3% (15/18) |
+| Gap recall | 100.0% (5/5) |
+| Escalation recall / precision | 75.0% / 100.0% |
+| Mean confidence (correct / wrong) | 0.845 / 0.673 |
+
+An ablation (`--ablation`) isolates the HITL policy's contribution from the
+model's own judgment. On this set the delta is zero — the deterministic policy
+never fired beyond the model's own `needs_human` calls, an honest null result
+that the harness makes visible rather than hides. Method, confusion matrix, and
+the ablation are in [`eval/README.md`](eval/README.md).
 
 ## Quickstart
 
@@ -91,6 +107,18 @@ cp .env.example .env         # add your ANTHROPIC_API_KEY
 pytest tests/                # unit tests — no API key needed
 python eval/run_eval.py      # runs the eval (needs ANTHROPIC_API_KEY)
 ```
+
+After `pip install -e .` the CLI is available:
+
+```bash
+assurance-copilot review --control "ISMS-P 2.5.1" --evidence evidence.txt
+assurance-copilot review --control "ISMS-P 2.5.1" --evidence screenshot.png  # image -> OCR
+assurance-copilot eval --ablation
+assurance-copilot export-oscal --in eval/results/latest.json --out ar.json
+```
+
+Image evidence needs the OCR extras: `pip install -e ".[ocr]"` (Apple Vision on
+macOS, Tesseract elsewhere). `--ocr auto|apple_vision|tesseract` selects the backend.
 
 The model defaults to `claude-opus-4-8`; override with `ASSURANCE_MODEL`.
 
@@ -103,8 +131,11 @@ The model defaults to `claude-opus-4-8`; override with `ASSURANCE_MODEL`.
 - **Self-reported confidence.** The model's confidence is not independently calibrated.
 - **Paraphrased controls.** Control texts are short summaries for demo use, not
   official normative texts.
-- **Roadmap components** (on-device OCR, RAG backend, OSCAL export, legal
-  grounding) are interfaces-first and not all implemented.
+- **Opt-in / roadmap components.** On-device OCR, legal grounding, and OSCAL
+  export are implemented but off the default path (OCR needs `.[ocr]` extras;
+  legal grounding needs Node.js and an API key). Korean OCR on the Tesseract
+  fallback is weak — Apple Vision is the Korean path. The MaxKB RAG backend is
+  implemented but optional (needs Docker); the local retriever is the default.
 
 ## License
 

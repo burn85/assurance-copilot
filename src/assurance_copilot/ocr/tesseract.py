@@ -9,7 +9,13 @@ accuracy on noisy scans is typically lower.
 
 from __future__ import annotations
 
+import os
+
 from .base import OCRBackend, OCRResult
+
+# Korean audit evidence alongside English; override with TESSERACT_LANG.
+# Falls back to "eng" if the requested language data is not installed.
+_DEFAULT_LANG = os.environ.get("TESSERACT_LANG", "kor+eng")
 
 
 class TesseractOCR(OCRBackend):
@@ -32,6 +38,11 @@ class TesseractOCR(OCRBackend):
         import pytesseract
         from PIL import Image
 
-        # `lang="kor+eng"` handles Korean audit evidence alongside English.
-        text = pytesseract.image_to_string(Image.open(image_path), lang="kor+eng")
+        image = Image.open(image_path)
+        try:
+            text = pytesseract.image_to_string(image, lang=_DEFAULT_LANG)
+        except pytesseract.TesseractError:
+            # Requested language data missing (e.g. no `kor`): degrade to English
+            # rather than crash, so the repo stays runnable on a bare install.
+            text = pytesseract.image_to_string(image, lang="eng")
         return OCRResult(text=text.strip(), backend=self.name, confidence=0.9)

@@ -56,8 +56,8 @@ def select_backend(prefer: str = "auto") -> OCRBackend:
         b = AppleVisionOCR()
         if not b.is_available():
             raise RuntimeError(
-                "Apple Vision backend requested but unavailable "
-                "(needs macOS 26+ / Apple Silicon and the `macvis` binary)."
+                "Apple Vision backend requested but unavailable (needs macOS + "
+                "`pip install pyobjc-framework-Vision pyobjc-framework-Quartz`)."
             )
         return b
 

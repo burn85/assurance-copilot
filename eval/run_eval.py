@@ -41,8 +41,8 @@ def load_dataset(path: pathlib.Path) -> list[dict]:
     return samples
 
 
-def evaluate(samples: list[dict]) -> dict:
-    reviewer = EvidenceReviewer()
+def evaluate(samples: list[dict], law_client=None) -> dict:
+    reviewer = EvidenceReviewer(law_client=law_client)
     records = []
     for i, s in enumerate(samples, 1):
         c, e = s["control"], s["evidence"]
@@ -60,6 +60,7 @@ def evaluate(samples: list[dict]) -> dict:
             "confidence": result.confidence,
             "escalated": result.escalated,
             "escalation_reason": result.escalation_reason,
+            "citation_valid": result.citation_valid,
             "reasoning": result.reasoning,
         })
     return {"records": records, "metrics": compute_metrics(records)}
@@ -89,6 +90,11 @@ def compute_metrics(records: list[dict]) -> dict:
     correct = [r for r in records if r["expert_verdict"] == r["predicted_verdict"]]
     wrong = [r for r in records if r["expert_verdict"] != r["predicted_verdict"]]
 
+    # Citation validity: only meaningful when legal grounding ran (--ground),
+    # which sets citation_valid to True/False; otherwise it stays None.
+    grounded = [r for r in records if r.get("citation_valid") is not None]
+    cite_valid = sum(bool(r["citation_valid"]) for r in grounded)
+
     def _mean(xs):
         return round(sum(xs) / len(xs), 3) if xs else None
 
@@ -101,6 +107,8 @@ def compute_metrics(records: list[dict]) -> dict:
         "escalation_recall": round(escalated_and_nh / nh_total, 3) if nh_total else None,
         "escalation_precision": round(escalated_and_nh / escalated_total, 3) if escalated_total else None,
         "needs_human_total": nh_total,
+        "citation_validity": round(cite_valid / len(grounded), 3) if grounded else None,
+        "citation_checked": len(grounded),
         "mean_confidence": _mean([r["confidence"] for r in records]),
         "mean_confidence_correct": _mean([r["confidence"] for r in correct]),
         "mean_confidence_wrong": _mean([r["confidence"] for r in wrong]),
@@ -117,6 +125,8 @@ def print_report(metrics: dict) -> None:
     print(f"Gap recall:         {_pct(m['gap_recall'])}  (of {m['gap_total']} real gaps)")
     print(f"Escalation recall:  {_pct(m['escalation_recall'])}  (of {m['needs_human_total']} needs-human)")
     print(f"Escalation prec.:   {_pct(m['escalation_precision'])}")
+    if m.get("citation_validity") is not None:
+        print(f"Citation validity:  {_pct(m['citation_validity'])}  (of {m['citation_checked']} grounded)")
     print(f"Mean confidence:    {m['mean_confidence']}  (correct {m['mean_confidence_correct']} / wrong {m['mean_confidence_wrong']})")
 
     print("\nConfusion matrix (rows = expert, cols = predicted):")
@@ -131,9 +141,83 @@ def _pct(x) -> str:
     return "n/a" if x is None else f"{x * 100:.1f}%"
 
 
+# --- Ablation: isolate what the HITL policy adds on top of the raw model -------
+# The saved records already carry `escalated` (the policy's decision) alongside
+# the raw `predicted_verdict`. So we can recompute two views with no new API
+# calls: (A) the model's verdict as-is, and (B) treating any escalated case as a
+# needs_human prediction. The delta is the judgment layer's contribution — the
+# part that isn't just the model.
+
+def _hitl_view(records: list[dict]) -> list[dict]:
+    """Records with predicted_verdict forced to needs_human where escalated."""
+    out = []
+    for r in records:
+        rr = dict(r)
+        if r["escalated"]:
+            rr["predicted_verdict"] = "needs_human"
+        out.append(rr)
+    return out
+
+
+def _policy_only_escalations(records: list[dict]) -> list[dict]:
+    """Escalations the policy added beyond the model's own needs_human calls."""
+    return [r for r in records if r["escalated"] and r["predicted_verdict"] != "needs_human"]
+
+
+def _delta(a, b) -> str:
+    if a is None or b is None:
+        return "n/a"
+    return f"{(b - a) * 100:+.1f}pp"
+
+
+def print_ablation(records: list[dict]) -> None:
+    raw = compute_metrics(records)
+    hitl = compute_metrics(_hitl_view(records))
+    print("\n" + "=" * 60)
+    print("ABLATION — raw model (A) vs +HITL policy (B)")
+    print("=" * 60)
+    print(f"{'metric':<20}{'A raw':>10}{'B +HITL':>10}{'delta':>10}")
+    for label, key in [
+        ("Verdict agreement", "verdict_agreement"),
+        ("Gap recall", "gap_recall"),
+        ("Escalation recall", "escalation_recall"),
+        ("Escalation prec.", "escalation_precision"),
+    ]:
+        a, b = raw[key], hitl[key]
+        print(f"{label:<20}{_pct(a):>10}{_pct(b):>10}{_delta(a, b):>10}")
+
+    flips = _policy_only_escalations(records)
+    print(f"\nHITL policy escalated {len(flips)} case(s) the model did not self-flag:")
+    if not flips:
+        print("  (none — on this dataset the deterministic policy never fired beyond")
+        print("   the model's own needs_human calls, so A and B are identical.)")
+    for r in flips:
+        expert = r["expert_verdict"]
+        effect = "newly CORRECT" if expert == "needs_human" else f"newly WRONG (expert={expert})"
+        print(f"  {r['control_id']}: {r['predicted_verdict']}->needs_human  {effect}  [{r['escalation_reason']}]")
+
+
 def main() -> None:
+    if "--ablation" in sys.argv:
+        path = config.EVAL_RESULTS_DIR / "latest.json"
+        if not path.exists():
+            sys.exit(f"No results to ablate: {path}\nRun `python eval/run_eval.py` first.")
+        out = json.loads(path.read_text(encoding="utf-8"))
+        print_ablation(out["records"])
+        return
+
     samples = load_dataset(config.EVAL_DATASET)
-    out = evaluate(samples)
+
+    # --ground: run the legal-grounding path (needs LAW_OC + Node). Opt-in so the
+    # default eval makes no law lookups and stays offline/cheap.
+    if "--ground" in sys.argv:
+        from assurance_copilot.legal import LawClient, grounding_enabled  # noqa: E402
+        if not grounding_enabled():
+            sys.exit("--ground needs LAW_OC set (free 법제처 Open API key).")
+        with LawClient() as law:
+            out = evaluate(samples, law_client=law)
+    else:
+        out = evaluate(samples)
     out["model"] = config.MODEL
     out["timestamp"] = datetime.now(timezone.utc).isoformat()
 

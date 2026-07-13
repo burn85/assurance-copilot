@@ -27,10 +27,13 @@ DEFAULT_MODEL = os.environ.get("ASSURANCE_MODEL", "claude-opus-4-8")
 
 class EvidenceReviewer:
     def __init__(self, client: Optional[anthropic.Anthropic] = None,
-                 model: str = DEFAULT_MODEL) -> None:
+                 model: str = DEFAULT_MODEL, law_client=None) -> None:
         # Zero-arg client resolves ANTHROPIC_API_KEY or an `ant auth login` profile.
         self.client = client or anthropic.Anthropic()
         self.model = model
+        # Optional legal.LawClient. When provided, the model is asked to cite the
+        # governing statute and that citation is verified against the 법제처 DB.
+        self.law_client = law_client
 
     def review(self, control: Control, evidence: Evidence) -> ReviewResult:
         user_message = prompts.build_user_message(
@@ -40,6 +43,8 @@ class EvidenceReviewer:
             control_guidance=control.guidance,
             evidence_text=evidence.text,
         )
+        if self.law_client is not None:
+            user_message += _legal_basis_prompt(control.id)
 
         response = self.client.messages.create(
             model=self.model,
@@ -53,7 +58,33 @@ class EvidenceReviewer:
         result = _parse_result(raw, control_id=control.id, model=self.model)
 
         # HITL policy can override the verdict to NEEDS_HUMAN and annotate why.
-        return apply_hitl_policy(result)
+        result = apply_hitl_policy(result)
+
+        # Legal grounding: verify the statute citation the model produced. A
+        # fabricated article is escalated regardless of confidence.
+        if self.law_client is not None:
+            check = self.law_client.verify_citations(
+                f"{result.reasoning} {result.citation.criterion_span}"
+            )
+            result.citation_valid = check.ok
+            if not check.ok and not result.escalated:
+                result.escalated = True
+                result.escalation_reason = "unverified_legal_citation"
+        return result
+
+
+def _legal_basis_prompt(control_id: str) -> str:
+    """Ask the model to cite the governing statute so it can be verified."""
+    from ..legal import statute_basis  # local import: legal is an optional addon
+
+    basis = statute_basis(control_id)
+    if not basis:
+        return ""
+    return (
+        f"\n\nLEGAL BASIS (for grounding): this control derives from {basis}. "
+        "In your reasoning, cite the specific statute article you rely on "
+        "(e.g. '개인정보보호법 제29조'). Do not invent article numbers."
+    )
 
 
 def _extract_text(response) -> str:

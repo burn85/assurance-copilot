@@ -10,12 +10,28 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+# src/assurance_copilot/config.py -> parents[2] == repo root
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# Load .env (gitignored) so `python eval/run_eval.py` picks up ANTHROPIC_* (and a
+# gateway ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN) without a manual `export`.
+# Optional: a no-op if python-dotenv isn't installed.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(REPO_ROOT / ".env")
+except ModuleNotFoundError:
+    pass
+
 # Mirrors the default in judgment/reviewer.py so the eval harness can report it.
 MODEL = os.environ.get("ASSURANCE_MODEL", "claude-opus-4-8")
 
-# src/assurance_copilot/config.py -> parents[2] == repo root
-REPO_ROOT = Path(__file__).resolve().parents[2]
 FRAMEWORKS_DIR = REPO_ROOT / "data" / "frameworks"
 CONTROLS_CATALOG = FRAMEWORKS_DIR / "ismsp_controls.md"
 EVAL_DATASET = REPO_ROOT / "eval" / "dataset" / "ismsp_samples.jsonl"
 EVAL_RESULTS_DIR = REPO_ROOT / "eval" / "results"
+
+# MaxKB RAG backend (optional; see docker-compose.maxkb.yml). The MVP runs on the
+# local retriever without this. MaxKB v2 auths via user/password login (not a
+# static key); MAXKB_USERNAME / MAXKB_PASSWORD are read by the client directly.
+MAXKB_BASE_URL = os.environ.get("MAXKB_BASE_URL", "http://localhost:8080")
