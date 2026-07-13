@@ -16,8 +16,8 @@ Confirmed against MaxKB v2 (image 1panel/maxkb) running locally — not assumed:
                         {query_text, top_number, similarity, search_mode}
                         -> data: [{content, title, similarity, ...}]
 
-ponytail: stdlib urllib, no new HTTP dependency — the surface is login + a few
-JSON POSTs. Add httpx only if we need connection pooling or async.
+Design note: stdlib urllib, no new HTTP dependency — the surface is login + a
+few JSON POSTs. Add httpx only if we need connection pooling or async.
 """
 
 from __future__ import annotations

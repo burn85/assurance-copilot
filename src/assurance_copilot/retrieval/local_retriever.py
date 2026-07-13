@@ -4,7 +4,7 @@ Parses the markdown control catalog into `Control` objects so the review
 pipeline (and the CLI) can run with no external infrastructure. Retrieval is a
 naive keyword-overlap score, which is plenty for a small curated catalog.
 
-# ponytail: naive substring keyword match, O(catalog) per query.
+# Note: naive substring keyword match, O(catalog) per query.
 # Upgrade path: swap `retrieve()` for embeddings / the MaxKB client if the
 # catalog grows past a few dozen controls.
 """

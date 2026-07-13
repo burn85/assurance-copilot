@@ -25,9 +25,9 @@ from .law_client import CitationCheck, LawClient
 # Statute basis for each seeded control. Access-control criteria (2.5.x / 2.6.x)
 # share the safety-measures duty of the Personal Information Protection Act
 # (개인정보보호법 제29조).
-# ponytail: article-level refinement per control is a domain-review task; this
-# seed maps the family to its shared statutory basis, which is accurate enough
-# to ground a verdict and to exercise verify_citations.
+# Note: article-level refinement per control is a domain-review task; this seed
+# maps the family to its shared statutory basis, which is accurate enough to
+# ground a verdict and to exercise verify_citations.
 CONTROL_STATUTE_BASIS = {
     "ISMS-P 2.5.1": "개인정보보호법 제29조",
     "ISMS-P 2.5.3": "개인정보보호법 제29조",

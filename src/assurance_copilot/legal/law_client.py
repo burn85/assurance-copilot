@@ -10,7 +10,7 @@ Needs Node.js (`npx korean-law-mcp`) and a free 법제처 Open API key (env LAW_
 Without the key the server errors on real lookups, so callers gate on
 `legal.grounding.grounding_enabled()` before constructing a client.
 
-ponytail: raw JSON-RPC over stdio instead of pulling in the `mcp` SDK — the
+Design note: raw JSON-RPC over stdio instead of pulling in the `mcp` SDK — the
 handshake is three messages and we only need one tool call per review. Add the
 SDK if we ever need streaming, cancellation, or resource subscriptions.
 """
