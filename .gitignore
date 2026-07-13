@@ -1,21 +1,20 @@
-# === 내부 문서 (Fieldguide에 절대 공개 금지 — 지원 전략·지원자 정보 포함) ===
-# 공개 대상은 README.md, ARCHITECTURE.md, 코드뿐. 아래는 로컬 전용.
+# Internal, local-only working docs — not part of the published project.
 BUILD_PLAN.md
 CLAUDE.md
 *_내부.md
 docs/internal/
 
-# === Secrets / 환경 ===
+# Secrets / environment
 .env
 .env.*
 !.env.example
 
-# === 증적·평가 산출물 (합성이라도 커밋 금지) ===
+# Evidence & evaluation outputs (never committed, even when synthetic)
 data/evidence/
 eval/results/
 *.oscal.json
 
-# === Python ===
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -28,7 +27,7 @@ venv/
 .mypy_cache/
 .ruff_cache/
 
-# === OS / 에디터 ===
+# OS / editor
 .DS_Store
 .idea/
 .vscode/
